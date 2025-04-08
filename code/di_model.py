@@ -51,7 +51,6 @@ pi = lambda k,z: z*k**theta
 psi = lambda k,I: psi_factor*I**2/(2*k)
 cf = lambda k,z,kprime: pi(k, z) - delta*k - psi(k, kprime - k) - (kprime - k)  
 
-
 def norm_grid_probs(a, mn, sd) :
     mpoints = (a[:-1] + a[1:])/2
     a = norm(mn, sd).cdf(mpoints)
@@ -94,49 +93,11 @@ for s in bar(range(n)):
     for a in range(m):
         Q[s*m + a, (a*len(grid_z)):((a + 1)*len(grid_z))] = prob_zprime[pos_z[s*m + a]]
    
-
-
-def my_tocsr(Q):
-    M, N = Q.shape
-    idx_dtype = sparse.sputils.get_index_dtype(maxval=N)
-    # Here is where the scipy code differs. It uses idx_dtype (int32 in my case)
-    # to define the 'lengths' array. This creates an int32 overflow in lengths.sum() below
-    # in my case as M*N > nnz > 2**31-1 
-    # So I change this to 
-    idx_dtype = sparse.sputils.get_index_dtype(maxval=M*N)
-    # to be on the safe side
-    lengths = np.empty(M, dtype=idx_dtype)
-    for i in range(len(Q.rows)):
-        lengths[i] = len(Q.rows[i])
-    nnz = lengths.sum()
-    idx_dtype = sparse.sputils.get_index_dtype(maxval=max(N, nnz))
-    indptr = np.empty(M + 1, dtype=idx_dtype)
-    indptr[0] = 0
-    indptr[1:] = np.cumsum(lengths, dtype=idx_dtype)
-    indices = np.empty(nnz, dtype=idx_dtype)
-    data = np.empty(nnz, dtype=Q.dtype)
-    pos = 0
-    for i in range(len(Q.rows)):
-        row = Q.rows[i]
-        for j in range(len(row)):
-            indices[pos] = row[j]
-            pos += 1
-    pos = 0
-    for i in range(len(Q.data)):
-        row = Q.data[i]
-        for j in range(len(row)):
-            data[pos] = row[j]
-            pos += 1
-    return(sparse.csr_matrix((data, indices, indptr), shape=Q.shape))
-
-
-Q = my_tocsr(Q)
+Q = Q.tocsr()
 
 ddp = DiscreteDP(R, Q, beta, s_indices, a_indices)
 
-
 results = ddp.solve(method='policy_iteration')
-
 
 df = pd.DataFrame({
         'z': np.tile(grid_z, len(grid_k)),
@@ -145,5 +106,5 @@ df = pd.DataFrame({
         'v': results.v
     })
 
-fpath = "data/grids/new_acc_sim_%dk_%dz_%dkmax_grid_%s.csv" % (len(grid_k), len(grid_z), max(grid_k), model)
+fpath = "data/grids/grid_%dk_%dz_%dkmax_%s.csv" % (len(grid_k), len(grid_z), max(grid_k), model)
 df.to_csv(fpath, index = False)

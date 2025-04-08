@@ -14,7 +14,7 @@ To setup the virtual Python environment and install the required packages, run t
 
 ```bash
 # Create a virtual environment
-python -m venv .venv
+python3 -m venv .venv
 # Activate the virtual environment
 # On Windows
 .venv\Scripts\activate
@@ -26,7 +26,7 @@ pip install -r requirements.txt
 
 To estimate the dynamic investment model underlying the analysis, you need an environment with a lot of RAM/swap space (about 350 GB). If you are short on RAM. you might be able to adjust the size of the estimation grid by setting `k_size`and `z_size` in `code/di_model.py` to smaller values (e.g. 100/100).
 
-Source the `code/di_model.py` file to run the model. The resulting grid will be stored in in the `data/grids` folder. 
+Source the `code/di_model.py` file to run the model. The resulting grid will be stored in in the `data/grids` folder. It will take app. 2 hours to produce the grid on a reasonably powerful environment.
 
 For convenience, three grids are already included in the repository. So. you can skip this step if you want to use the precomputed grid.
 
