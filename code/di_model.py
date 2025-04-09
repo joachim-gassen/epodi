@@ -13,7 +13,6 @@ https://onlinelibrary.wiley.com/doi/epdf/10.1111/1475-679X.12253
 """
 
 import numpy as np
-import quantecon as qe
 import pandas as pd
 from scipy.stats import norm
 import scipy.sparse as sparse
@@ -32,6 +31,7 @@ if (model == "BW"):
     sigma_z = 0.5 
     k_grid = "linear"
     k_size = 600
+    z_grid = "linear"
     z_size = 100
 elif (model == "BWlog"): 
     beta=1/(1.1)
@@ -43,7 +43,21 @@ elif (model == "BWlog"):
     sigma_z = 0.5 
     k_grid = "log"
     k_size = 600
+    z_grid = "linear"
     z_size = 100
+elif (model == "BWznorm"): 
+    beta=1/(1.1)
+    delta = 0.15
+    psi_factor = 1
+    rho = 0.7
+    theta = 0.7
+    z_upper_bar = 1.5
+    sigma_z = 0.5 
+    k_grid = "linear"
+    k_size = 600
+    z_grid = "normal"
+    z_size = 101 # to have z_upper_bar as a grid point
+
 else:
     raise ValueError("Model not recognized")
     
@@ -58,19 +72,37 @@ def norm_grid_probs(a, mn, sd) :
 
 if (k_grid == "linear"):
     grid_k = np.linspace(1, k_size, k_size)
-
-if (k_grid == "log"):
+elif (k_grid == "log"):
     grid_k = np.logspace(0, np.log10(500), num = k_size)
-
-if (k_grid == "depr"):
+elif (k_grid == "depr"):
     grid_k = np.empty(k_size)
     for s in range(k_size):
         if (s==0):
             grid_k[0] = 1
         else:
             grid_k[s] = grid_k[s-1]/(1-delta)
+else:
+    raise ValueError("k_grid not recognized")
 
-grid_z = np.linspace(z_upper_bar - 4*sigma_z, z_upper_bar + 4*sigma_z, z_size)
+def normal_space(mean, sd, lower, upper, num=50):
+    cdf_lower = norm.cdf((lower - mean) / sd)
+    cdf_upper = norm.cdf((upper - mean) / sd)
+    cdf_vals = np.linspace(cdf_lower, cdf_upper, num=num)
+    x = norm.ppf(cdf_vals) * sd + mean
+    return x
+
+if (z_grid == "linear"):
+    grid_z = np.linspace(
+        z_upper_bar - 4*sigma_z, z_upper_bar + 4*sigma_z, z_size
+    )
+elif (z_grid == "normal"):
+    grid_z = normal_space(
+        z_upper_bar, sigma_z, 
+        z_upper_bar - 4*sigma_z, z_upper_bar + 4*sigma_z, 
+        z_size
+    )
+else:
+    raise ValueError("z_grid not recognized")
 
 n = len(grid_k) * len(grid_z)
 m = len(grid_k) 
