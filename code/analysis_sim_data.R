@@ -10,6 +10,8 @@ if (!file.exists(PANELS_FNAME)) {
 }
 panels <- readRDS(PANELS_FNAME)
 
+delta = 0.15
+
 reg_results <- function(g) {
   df <- panels %>% filter(gamma == g) %>% group_by(firm) %>%
     mutate(
@@ -46,7 +48,7 @@ reg_results <- function(g) {
   )  
 }
 
-r <- bind_rows(lapply(seq(0, 1, by = 0.1), reg_results))
+rr <- bind_rows(lapply(seq(0, 1, by = 0.1), reg_results))
 
 ggplot(
   rr %>% filter(model == "persistence"),
@@ -66,27 +68,41 @@ ggplot(rr %>% filter(model == "price_earnings"), aes(x = gamma, y = coef)) +
   ) +
   theme_classic()
 
-if (FALSE) {
-  df <- panels %>% filter(gamma == 0.5) %>%
-    group_by(firm) %>%
-    mutate(
-      lag_accear = lag(accear),
-      total_assets = (1 - delta)*k + I
-    )
-  
-  ggplot(df, aes(x = lag_accear, y = accear)) + 
-    geom_point(alpha = 0.25) + 
-    theme_classic()
-  
-  ggplot(df, aes(x = lag_accear/total_assets, y = accear/total_assets)) + 
-    geom_point(alpha = 0.25) + 
-    theme_classic()
-  
-  ggplot(df, aes(x = accear, y = V)) + 
-    geom_point(alpha = 0.25) + 
-    theme_classic()
+df <- panels %>%
+  group_by(gamma, firm) %>%
+  mutate(
+    lag_accear = lag(accear),
+    price = V,
+    return = (V - lag(V))/lag(V),
+    roa = accear/k,
+  )
 
-  ggplot(df, aes(x = accear/total_assets, y = V/total_assets)) + 
-    geom_point(alpha = 0.25) + 
-    theme_classic()
-}
+ggplot(df %>% filter(near(gamma, 0)), aes(x = lag_accear, y = accear)) + 
+  geom_point(alpha = 0.25) + 
+  theme_classic()
+
+ggplot(df %>% filter(near(gamma, 10.0)), aes(x = lag_accear, y = accear)) + 
+  geom_point(alpha = 0.25) + 
+  theme_classic()
+
+ggplot(df %>% filter(near(gamma, 0)), aes(x = accear, y = price)) + 
+  geom_point(alpha = 0.25) + 
+  theme_classic()
+
+ggplot(df %>% filter(near(gamma, 1.0)), aes(x = accear, y = price)) + 
+  geom_point(alpha = 0.25) + 
+  theme_classic()
+
+ggplot(df %>% filter(near(gamma, 0.7)), aes(x = accear, y = price)) + 
+  geom_point(alpha = 0.25) + 
+  theme_classic()
+
+ggplot(df %>% filter(near(gamma, 0)), aes(x = roa, y = return)) + 
+  geom_point(alpha = 0.25) + 
+  scale_x_continuous(labels = scales::percent, limits=c(-1, 1)) +
+  theme_classic()
+
+ggplot(df %>% filter(near(gamma, 1.0)), aes(x = roa, y = return)) + 
+  geom_point(alpha = 0.25) + 
+  scale_x_continuous(labels = scales::percent, limits=c(-1, 1)) +
+  theme_classic()

@@ -3,8 +3,8 @@ library(fixest)
 library(logger)
 set.seed(42)
 
-grid <- "600k_100z_600kmax"
-model <- "BW"
+grid <- "600k_101z_600kmax"
+model <- "BWznorm"
 
 grid_fname <- sprintf("data/grids/precomp_grid_%s_%s.csv", grid, model)
 
@@ -15,7 +15,7 @@ mink <- min(grid_df$k)
 N_FIRMS <- 4000
 N_YEARS <- 25
 
-if (model == "BW") {
+if (str_detect(model, fixed("BW"))) {
   beta <- 1/(1.1)
   delta <-  0.15
   psi_factor <- 1

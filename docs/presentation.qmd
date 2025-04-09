@@ -1,0 +1,224 @@
+---
+title: |
+  | Matthias Breuer and David Windisch 
+  | (Mis-)Matching and Earnings Properties: Implications of Dynamic Investments
+subtitle: "KIT, Ausschuss Unternehmensrechnung VfS" 
+author: Joachim Gassen
+institute: "HU Berlin"
+date: today
+date-format: "MMMM D, YYYY"
+format: 
+  beamer:
+    latex_engine: xelatex # pdflatex creates rastered fonts
+    slide_level: 3
+    
+classoption: "aspectratio=169"
+
+header-includes:
+- \usepackage{booktabs} 
+- \usepackage{tabularx}
+- \usepackage{multirow,makecell}
+- \usepackage{array}
+- \renewcommand\tabularxcolumn[1]{m{#1}}
+- \usepackage{makecell}
+- \usepackage{colortbl}
+- \usepackage{adjustbox}
+- \usepackage{tikz}
+- \usepackage{siunitx}
+- \usepackage{tabu}
+- \usetikzlibrary{arrows,arrows.meta,calc,positioning,matrix}
+- \input{materials/beamer_theme_trr266_16x9.sty}
+---
+
+```{r setup, include=FALSE, cache=F, message=F, warning=F, results="hide"}
+knitr::opts_chunk$set(
+  cache = FALSE, echo = FALSE, message = FALSE, warning = FALSE
+)
+
+suppressMessages({
+  library(tidyverse)
+  library(gt)
+  library(kableExtra)
+  library(modelsummary)
+  library(showtext)
+	library(tufte)
+  devtools::source_url(
+    "https://raw.githubusercontent.com/trr266/treat/main/code/R/theme_trr.R"
+  )
+})
+
+set.seed(42)
+
+panels <- readRDS("../data/generated/panels_600k_100z_600kmax_BW_4000firms_25years.rds") %>%
+  group_by(gamma, firm) %>%
+  mutate(
+    lag_accear = lag(accear),
+    price = V
+  )
+panel <- readRDS("../data/generated/panel_wrds.rds")
+# Needs \usepackage{adjustbox} in preamble
+fit_gt_table_to_slide <- function(x, scale = 1) {
+	if (scale == 1) repstr <- "\\\\resizebox{\\\\columnwidth}{!}{\\\\begin{tabular}"
+	else repstr <- paste0("\\\\resizebox{", scale, "\\\\columnwidth}{!}{\\\\begin{tabular}")
+  x <- sub("\\\\begin\\{longtable\\}", repstr, x)
+  x <- sub("\\\\end\\{longtable\\}", "\\\\end{tabular}}", x)
+  x
+}
+
+fit_gt_table_to_slide_long <- function(x, scale = 1) {
+	if (scale == 1) repstr <- "\\\\resizebox*{!}{\\\\textheight}{\\\\begin{tabular}"
+	else repstr <- paste0("\\\\resizebox*{!}{", scale, "\\\\textheight}{\\\\begin{tabular}")
+  x <- sub("\\\\begin\\{longtable\\}", repstr, x)
+  x <- sub("\\\\end\\{longtable\\}", "\\\\end{tabular}}", x)
+  x
+}
+
+center_table <- function(x) {
+	x[1] <- paste0("\\begin{center}", x[1], "\\end{center}")
+	x
+}
+
+script_size <- function(x) {
+	x[1] <- paste0("\\scriptsize", x[1], "\\normalsize")
+	x
+}
+
+tiny_size <- function(x) {
+	x[1] <- paste0("\\tiny", x[1], "\\normalsize")
+	x
+}
+```
+
+```{r InstallTRRFonts}
+trr266_fonts_available <- all(c("Cambria", "Calibri Light") %in% font_families())
+
+if (!trr266_fonts_available) {
+  # On Mac with MS Office installation you need to add the Office
+  # Fonts to the font path. The following depends on your 
+  # installation but _should_ work in most cases
+  
+  office_font_path <- "/Applications/Microsoft Word.app/Contents/Resources/DFonts"
+  if (Sys.info()["sysname"] == "Darwin") {
+    if (dir.exists(office_font_path)) font_paths(office_font_path)
+    else stop("MS Office font path not found")
+  }
+  
+  rv <- tryCatch({
+    font_add(family = "Cambria", regular = "Cambria.ttc")
+    font_add(family = "Calibri Light", regular = "calibril.ttf")
+  }, error = function(e) {
+    message(sprintf("Failed to install TRR 266 fonts: %s", e))
+    invisible(font_families())        
+  })
+  
+  trr266_fonts_available <- all(c("Cambria", "Calibri Light") %in% rv)
+  if (trr266_fonts_available) message("Successfully installed TRR 266 fonts") 
+}
+```
+
+
+## Summary of BW
+
+Using a dynamic investment model as in Breuer and Windisch (JAR, 2019) and including a stylized asset recognition rule the authors show that 
+
+- recognizing investments yields less persistent earnings and lower PE-mutliples
+- and that Compustat/CRSP data show a similar pattern when partitioned based on established firm-level measures of unconditional conservatism.
+
+They conclude that earnings persistence and PE-ratios might be doubtful measures of earnings quality:
+\vspace{0.5cm}
+\begin{quote}
+Thus, our findings reveal potentially unexpected consequences of capitalizing versus expensing R\&D- and SG\&A-type expenditures for popular earnings properties, and suggest that caution is warranted when using earnings persistence and price-earnings multiples as indicators of earnings quality.
+\end{quote}
+
+## (My) Intuition
+
+1. The only truly exogenous driver of the dynamic model is $e_t \sim \mathcal{N}(0, \sigma)$ of the mean reverting AR(1) profitiability process.
+2. This profitability shock drives operating and free cash flow via $\pi_t$.
+3. As it propogates into the future ($\rho > 0$), it also triggers current Investment ($I_t$), causing related costs $\psi_t$.
+4. The investment and the shocked future level of profitability $z$ affects expected future free cash flows, thereby also affecting value $V_t$.
+
+Recognized earnings reflect the effects of $\pi_t$ and $\psi_z$, making earnings relatively stochastic. Expensed earnings 'mute' these effects by deducting $I_t$ which, as it also is driven by $e_t$, makes earnigs less stochastic (more persistent) 
+
+## Model Data: Persistence ($\gamma = 0.0$, recognized)
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+perplot <- function(g) {
+  ggplot(panels %>% filter(near(gamma, g)), aes(x = lag_accear, y = accear)) + 
+    geom_point(alpha = 0.25) + 
+    labs(x = "Earnings (t -1)", y = "Earnings (t)") +
+    theme_classic() 
+}
+perplot(0.0)
+```
+
+## Model Data: Persistence ($\gamma = 1.0$, expensed)
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+perplot(1.0)
+```
+
+
+## For Comparison: Compustat NA (sample similar to BW(2025))
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+ggplot(panel, aes(x = lag_earnings, y = earnings)) + 
+  geom_point(alpha = 0.25) + 
+  labs(x = "Earnings (t -1)", y = "Earnings (t)") +
+  theme_classic()
+```
+
+## For Comparison: Compustat NA (sample similar to BW(2025), winsorized)
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+panel_w <- ExPanDaR::treat_outliers(panel)
+ggplot(panel_w, aes(x = lag_earnings, y = earnings)) + 
+  geom_point(alpha = 0.25) + 
+  labs(x = "Earnings (t -1)", y = "Earnings (t)") +
+  theme_classic()
+```
+
+## Model Data: PE-Multiple ($\gamma = 0.0$, recognized)
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+pemultplot <- function(g) {
+  ggplot(panels %>% filter(near(gamma, g)), aes(x = accear, y = price)) + 
+    geom_point(alpha = 0.25) + 
+    labs(x = "Earnings (t)", y = "Value (t)") +
+    theme_classic() 
+}
+pemultplot(0.0)
+```
+
+## Model Data: PE-Multiple ($\gamma = 1.0$, expensed)
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+pemultplot(1.0)
+```
+
+
+## For Comparison: Compustat NA (sample similar to BW(2025))
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+ggplot(panel, aes(x = earnings_per_share, y = price_per_share)) + 
+  geom_point(alpha = 0.25) + 
+  labs(x = "EPS (t)", y = "Share Price (t)") +
+  theme_classic()
+```
+
+## For Comparison: Compustat NA (sample similar to BW(2025), winsorized)
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+ggplot(panel_w, aes(x = earnings_per_share, y = price_per_share)) + 
+  geom_point(alpha = 0.25) + 
+  labs(x = "EPS (t)", y = "Share Price (t)") +
+  theme_classic()
+```
+
+
+## Some mostly minor points
+
+- Shouldn't equation (3) read as $z_t = (1 − \rho)\bar{z} + \rho z_{t-1} + \varepsilon_{t}$? (also at bottom of P. 11)?
+- Equation (5) seems to lack a closing bracket
+- Why does the price equation on P. 14 include the term $(1 - \delta)k_t + I_t$? What is the value of the assets in place besides generating future cash flow that is already included in the sum term (does also not seem to fit your data)?
+- Some more detail on the techicalities of the empirical analysis would be nice (outlier treatment, ...)
+- How uses PE-multiples as an indicator of earnings quality? ;-)
