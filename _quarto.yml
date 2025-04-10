@@ -1,4 +1,3 @@
 project:
+  execute-dir: project
   output-dir: ../output
-profile:
-  default: full

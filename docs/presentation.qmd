@@ -37,11 +37,7 @@ knitr::opts_chunk$set(
 
 suppressMessages({
   library(tidyverse)
-  library(gt)
-  library(kableExtra)
-  library(modelsummary)
   library(showtext)
-	library(tufte)
   devtools::source_url(
     "https://raw.githubusercontent.com/trr266/treat/main/code/R/theme_trr.R"
   )
@@ -49,44 +45,8 @@ suppressMessages({
 
 set.seed(42)
 
-panels <- readRDS("../data/generated/panels_600k_100z_600kmax_BW_4000firms_25years.rds") %>%
-  group_by(gamma, firm) %>%
-  mutate(
-    lag_accear = lag(accear),
-    price = V
-  )
-panel <- readRDS("../data/generated/panel_wrds.rds")
-# Needs \usepackage{adjustbox} in preamble
-fit_gt_table_to_slide <- function(x, scale = 1) {
-	if (scale == 1) repstr <- "\\\\resizebox{\\\\columnwidth}{!}{\\\\begin{tabular}"
-	else repstr <- paste0("\\\\resizebox{", scale, "\\\\columnwidth}{!}{\\\\begin{tabular}")
-  x <- sub("\\\\begin\\{longtable\\}", repstr, x)
-  x <- sub("\\\\end\\{longtable\\}", "\\\\end{tabular}}", x)
-  x
-}
-
-fit_gt_table_to_slide_long <- function(x, scale = 1) {
-	if (scale == 1) repstr <- "\\\\resizebox*{!}{\\\\textheight}{\\\\begin{tabular}"
-	else repstr <- paste0("\\\\resizebox*{!}{", scale, "\\\\textheight}{\\\\begin{tabular}")
-  x <- sub("\\\\begin\\{longtable\\}", repstr, x)
-  x <- sub("\\\\end\\{longtable\\}", "\\\\end{tabular}}", x)
-  x
-}
-
-center_table <- function(x) {
-	x[1] <- paste0("\\begin{center}", x[1], "\\end{center}")
-	x
-}
-
-script_size <- function(x) {
-	x[1] <- paste0("\\scriptsize", x[1], "\\normalsize")
-	x
-}
-
-tiny_size <- function(x) {
-	x[1] <- paste0("\\tiny", x[1], "\\normalsize")
-	x
-}
+source("code/objects_sim_data.R")
+source("code/objects_wrds_data.R")
 ```
 
 ```{r InstallTRRFonts}
@@ -130,6 +90,7 @@ They conclude that earnings persistence and PE-ratios might be doubtful measures
 Thus, our findings reveal potentially unexpected consequences of capitalizing versus expensing R\&D- and SG\&A-type expenditures for popular earnings properties, and suggest that caution is warranted when using earnings persistence and price-earnings multiples as indicators of earnings quality.
 \end{quote}
 
+
 ## (My) Intuition
 
 1. The only truly exogenous driver of the dynamic model is $e_t \sim \mathcal{N}(0, \sigma)$ of the mean reverting AR(1) profitiability process.
@@ -137,88 +98,108 @@ Thus, our findings reveal potentially unexpected consequences of capitalizing ve
 3. As it propogates into the future ($\rho > 0$), it also triggers current Investment ($I_t$), causing related costs $\psi_t$.
 4. The investment and the shocked future level of profitability $z$ affects expected future free cash flows, thereby also affecting value $V_t$.
 
-Recognized earnings reflect the effects of $\pi_t$ and $\psi_z$, making earnings relatively stochastic. Expensed earnings 'mute' these effects by deducting $I_t$ which, as it also is driven by $e_t$, makes earnigs less stochastic (more persistent) 
+Recognized earnings reflect the effects of $\pi_t$ and $\psi_t$, making earnings relatively stochastic. Expensed earnings 'mute' these effects by deducting $I_t$ which, as it also is driven by $e_t$, makes earnigs less stochastic (more persistent) 
+
+
+## Compare to Figures 1 and 2 of BW
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+fig_sim_shock_ear_price +
+  theme(text = element_text(size = 18))
+```
+
+
+## Same shock, cash flow effects (free cash flow = earnings expensed)
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+fig_sim_shock_cfs +
+  theme(text = element_text(size = 18))
+```
+
+
+## Regression coefficients persistence (compare to Table 1, Panel A of BW)
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+fig_sim_regcoef_persistence +
+  theme(text = element_text(size = 18))
+```
+
+
+## Regression coefficients PE multiples (compare to Table 1, Panel B of BW)
+
+```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
+fig_sim_regcoef_pemultiple +
+  theme(text = element_text(size = 18))
+```
+
 
 ## Model Data: Persistence ($\gamma = 0.0$, recognized)
 
 ```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
-perplot <- function(g) {
-  ggplot(panels %>% filter(near(gamma, g)), aes(x = lag_accear, y = accear)) + 
-    geom_point(alpha = 0.25) + 
-    labs(x = "Earnings (t -1)", y = "Earnings (t)") +
-    theme_classic() 
-}
-perplot(0.0)
+fig_sim_scatter_persistence(0.0) +
+  theme(text = element_text(size = 18))
 ```
 
 ## Model Data: Persistence ($\gamma = 1.0$, expensed)
 
 ```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
-perplot(1.0)
+fig_sim_scatter_persistence(1.0) +
+  theme(text = element_text(size = 18))
 ```
 
 
-## For Comparison: Compustat NA (sample similar to BW(2025))
+## For Comparison: Compustat NA (sample similar to BW)
 
 ```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
-ggplot(panel, aes(x = lag_earnings, y = earnings)) + 
-  geom_point(alpha = 0.25) + 
-  labs(x = "Earnings (t -1)", y = "Earnings (t)") +
-  theme_classic()
+fig_wrds_scatter_persistence(panel_wrds) +
+  theme(text = element_text(size = 18))
 ```
 
-## For Comparison: Compustat NA (sample similar to BW(2025), winsorized)
+
+## For Comparison: Compustat NA (sample similar to BW, winsorized)
 
 ```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
-panel_w <- ExPanDaR::treat_outliers(panel)
-ggplot(panel_w, aes(x = lag_earnings, y = earnings)) + 
-  geom_point(alpha = 0.25) + 
-  labs(x = "Earnings (t -1)", y = "Earnings (t)") +
-  theme_classic()
+fig_wrds_scatter_persistence(panel_wrds_winsorized) +
+  theme(text = element_text(size = 18))
 ```
+
 
 ## Model Data: PE-Multiple ($\gamma = 0.0$, recognized)
 
 ```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
-pemultplot <- function(g) {
-  ggplot(panels %>% filter(near(gamma, g)), aes(x = accear, y = price)) + 
-    geom_point(alpha = 0.25) + 
-    labs(x = "Earnings (t)", y = "Value (t)") +
-    theme_classic() 
-}
-pemultplot(0.0)
+fig_sim_scatter_pemultiple(0.0) +
+  theme(text = element_text(size = 18))
 ```
+
 
 ## Model Data: PE-Multiple ($\gamma = 1.0$, expensed)
 
 ```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
-pemultplot(1.0)
+fig_sim_scatter_pemultiple(1.0) +
+  theme(text = element_text(size = 18))
 ```
 
 
-## For Comparison: Compustat NA (sample similar to BW(2025))
+## For Comparison: Compustat NA (sample similar to BW)
 
 ```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
-ggplot(panel, aes(x = earnings_per_share, y = price_per_share)) + 
-  geom_point(alpha = 0.25) + 
-  labs(x = "EPS (t)", y = "Share Price (t)") +
-  theme_classic()
+fig_wrds_scatter_pemultiples(panel_wrds) +
+  theme(text = element_text(size = 18))
 ```
 
-## For Comparison: Compustat NA (sample similar to BW(2025), winsorized)
+
+## For Comparison: Compustat NA (sample similar to BW, winsorized)
 
 ```{r, fig.width=12, fig.height=5, fig.align="center", fig.showtext = TRUE}
-ggplot(panel_w, aes(x = earnings_per_share, y = price_per_share)) + 
-  geom_point(alpha = 0.25) + 
-  labs(x = "EPS (t)", y = "Share Price (t)") +
-  theme_classic()
+fig_wrds_scatter_pemultiples(panel_wrds_winsorized) +
+  theme(text = element_text(size = 18))
 ```
 
 
 ## Some mostly minor points
 
-- Shouldn't equation (3) read as $z_t = (1 − \rho)\bar{z} + \rho z_{t-1} + \varepsilon_{t}$? (also at bottom of P. 11)?
+- Shouldn't equation (3) read as $z_t = (1 − \rho)\bar{z} + \rho z_{t-1} + \varepsilon_{t}$ (also at bottom of P. 11)?
 - Equation (5) seems to lack a closing bracket
 - Why does the price equation on P. 14 include the term $(1 - \delta)k_t + I_t$? What is the value of the assets in place besides generating future cash flow that is already included in the sum term (does also not seem to fit your data)?
-- Some more detail on the techicalities of the empirical analysis would be nice (outlier treatment, ...)
-- How uses PE-multiples as an indicator of earnings quality? ;-)
+- Some more detail on the techicalities of the model implementation (e.g., grid, firm initialization) and empirical analysis (e.g., outlier treatment) would be nice
+- Who uses PE-multiples as an indicator of earnings quality? ;-)

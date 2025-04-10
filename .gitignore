@@ -9,3 +9,5 @@ config.env
 .venv
 
 
+
+/.quarto/
