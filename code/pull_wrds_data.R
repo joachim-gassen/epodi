@@ -10,7 +10,6 @@
 
 suppressWarnings(suppressPackageStartupMessages({
   library(duckdb)
-  library(hms)
   library(logger)
 }))
 

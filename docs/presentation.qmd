@@ -1,7 +1,8 @@
 ---
 title: |
   | Matthias Breuer and David Windisch 
-  | (Mis-)Matching and Earnings Properties: Implications of Dynamic Investments
+  | (Mis-)Matching and Earnings Properties: 
+  | Implications of Dynamic Investments
 subtitle: "KIT, Ausschuss Unternehmensrechnung VfS" 
 author: Joachim Gassen
 institute: "HU Berlin"
@@ -38,9 +39,6 @@ knitr::opts_chunk$set(
 suppressMessages({
   library(tidyverse)
   library(showtext)
-  devtools::source_url(
-    "https://raw.githubusercontent.com/trr266/treat/main/code/R/theme_trr.R"
-  )
 })
 
 set.seed(42)
@@ -49,39 +47,12 @@ source("code/objects_sim_data.R")
 source("code/objects_wrds_data.R")
 ```
 
-```{r InstallTRRFonts}
-trr266_fonts_available <- all(c("Cambria", "Calibri Light") %in% font_families())
-
-if (!trr266_fonts_available) {
-  # On Mac with MS Office installation you need to add the Office
-  # Fonts to the font path. The following depends on your 
-  # installation but _should_ work in most cases
-  
-  office_font_path <- "/Applications/Microsoft Word.app/Contents/Resources/DFonts"
-  if (Sys.info()["sysname"] == "Darwin") {
-    if (dir.exists(office_font_path)) font_paths(office_font_path)
-    else stop("MS Office font path not found")
-  }
-  
-  rv <- tryCatch({
-    font_add(family = "Cambria", regular = "Cambria.ttc")
-    font_add(family = "Calibri Light", regular = "calibril.ttf")
-  }, error = function(e) {
-    message(sprintf("Failed to install TRR 266 fonts: %s", e))
-    invisible(font_families())        
-  })
-  
-  trr266_fonts_available <- all(c("Cambria", "Calibri Light") %in% rv)
-  if (trr266_fonts_available) message("Successfully installed TRR 266 fonts") 
-}
-```
-
 
 ## Summary of BW
 
 Using a dynamic investment model as in Breuer and Windisch (JAR, 2019) and including a stylized asset recognition rule the authors show that 
 
-- recognizing investments yields less persistent earnings and lower PE-mutliples
+- recognizing investments yields less persistent earnings and lower PE-mutliples,
 - and that Compustat/CRSP data show a similar pattern when partitioned based on established firm-level measures of unconditional conservatism.
 
 They conclude that earnings persistence and PE-ratios might be doubtful measures of earnings quality:
@@ -93,12 +64,12 @@ Thus, our findings reveal potentially unexpected consequences of capitalizing ve
 
 ## (My) Intuition
 
-1. The only truly exogenous driver of the dynamic model is $e_t \sim \mathcal{N}(0, \sigma)$ of the mean reverting AR(1) profitiability process.
+1. The only truly exogenous driver of the dynamic model is $e_t \sim \mathcal{N}(0, \sigma)$ of the mean reverting AR(1) profitability process.
 2. This profitability shock drives operating and free cash flow via $\pi_t$.
-3. As it propogates into the future ($\rho > 0$), it also triggers current Investment ($I_t$), causing related costs $\psi_t$.
-4. The investment and the shocked future level of profitability $z$ affects expected future free cash flows, thereby also affecting value $V_t$.
+3. As it propagates into the future ($\rho > 0$), it also triggers investment ($I_t$), causing related costs $\psi_t$.
+4. The investment and the shocked future level of profitability $z$ affect expected future free cash flows, thereby also affecting value $V_t$.
 
-Recognized earnings reflect the effects of $\pi_t$ and $\psi_t$, making earnings relatively stochastic. Expensed earnings 'mute' these effects by deducting $I_t$ which, as it also is driven by $e_t$, makes earnigs less stochastic (more persistent) 
+Recognized earnings reflect the effects of $\pi_t$ and $\psi_t$, making earnings relatively stochastic. Expensed earnings 'mute' these effects by deducting $I_t$ which, as it also is driven by $e_t$, makes earnings less stochastic (more persistent) 
 
 
 ## Compare to Figures 1 and 2 of BW
@@ -139,6 +110,7 @@ fig_sim_regcoef_pemultiple +
 fig_sim_scatter_persistence(0.0) +
   theme(text = element_text(size = 18))
 ```
+
 
 ## Model Data: Persistence ($\gamma = 1.0$, expensed)
 
@@ -201,5 +173,13 @@ fig_wrds_scatter_pemultiples(panel_wrds_winsorized) +
 - Shouldn't equation (3) read as $z_t = (1 − \rho)\bar{z} + \rho z_{t-1} + \varepsilon_{t}$ (also at bottom of P. 11)?
 - Equation (5) seems to lack a closing bracket
 - Why does the price equation on P. 14 include the term $(1 - \delta)k_t + I_t$? What is the value of the assets in place besides generating future cash flow that is already included in the sum term (does also not seem to fit your data)?
-- Some more detail on the techicalities of the model implementation (e.g., grid, firm initialization) and empirical analysis (e.g., outlier treatment) would be nice
+- Some more detail on the technicalities of the model implementation (e.g., grid, firm initialization) and empirical analysis (e.g., outlier treatment) would be nice
 - Who uses PE-multiples as an indicator of earnings quality? ;-)
+
+## All the best for this super nice project!
+
+\begin{center}
+\includegraphics[height =0.4\textheight]{"materials/github_repo_qr_code.png"}
+
+\includegraphics[height =0.1\textheight]{"materials/github_logo.png"}
+\end{center}

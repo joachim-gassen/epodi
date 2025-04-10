@@ -3,12 +3,49 @@
 ### Idea
 
 This repository contains a sketchy reanalysis of the findings of the working paper
-"(Mis-)Matching and Earnings Properties: Implications of Dynamic Investments" by Matthias Breuer and David Windisch. By building on the [QuantEcon Python Package](https://quantecon.org), it uses a different code base than [Breuer and Windisch (JAR, 2017)](https://doi.org/10.1111/1475-679X.12253) so deviations from the original findings are to be expected. The goal is to provide a more accessible and flexible implementation of the model, which can be used for further research and analysis.
+"(Mis-)Matching and Earnings Properties: Implications of Dynamic Investments" by Matthias Breuer and David Windisch. By building on the [QuantEcon Python Package](https://quantecon.org), it uses a different code base than [Breuer and Windisch (JAR, 2019)](https://doi.org/10.1111/1475-679X.12253) so deviations from the original findings are to be expected. The goal is to provide an accessible and flexible implementation of the model, which can be used for further research and analysis.
+
+It was inspired by a discussion that I provided for the above working paper. You can  find the discussion slides in the `static` folder in case you are interested.
 
 
-### Setup
+### Reproduce simulation results and slide deck
 
-You need Python 3.8 or higher to estimate the dynamic investment model and R to download the required WRDS data and to run the analysis.
+To reproduce the slide deck, you need a reasonably recent R and quarto installation plus the following libraries:
+
+- tidyverse
+- duckdb
+- arrow
+- fixest
+- logger
+
+As a next step, you need to copy `_config.env` to `config.env` and add your WRDS credentials. You need access to Compustat, CRSP, and Compustat/CRSP merged. Do **not** commit the `config.env` file to the repository (it is included in `.gitignore` to avoid you doing this accidentally).
+
+Assuming that you have maketools installed, you can run then run `make all`
+in the project root to create the necessary data files and the slide deck. The data files will be stored in the `data/generated` folder and the slide deck will be stored in the `output` folder.
+
+If you do not have make installed, you can try your luck by executing the following script.
+
+```bash
+# Copy the pre-computed dynamic investment model grid
+copy data/grids/precomp_grid_600k_100z_600kmax_BW.csv \
+    data/grids/grid_grid_600k_100z_600kmax_BW.csv
+
+# Download WRDS data (takes ~30 minutes)
+Rscript code/pull_wrds_data.R
+
+# Create simulated samples (takes ~10 minutes)
+Rscript code/create_sim_panels.R
+
+# Create Compustat/CRSP sample
+Rscript code/create_wrds_panel.R
+
+# Render the slide deck
+quarto docs/presentation.Rmd
+``` 
+
+### Re-estimate the dynamic investment model grid
+
+As the code uses the Python quantecon package to do the heavy lifting around the dynamic programming algorithms needed to estimate the solution for the dynamic invest model, you need Python 3.8 or higher. In addition, you need an environment with a lot of RAM/swap space (about 350 GB). If you are short on RAM, you can adjust the size of the estimation grid by setting `k_size`and `z_size` in `code/di_model.py` to smaller values (e.g. 100/100).
 
 To setup the virtual Python environment and install the required packages, run the following command in your terminal:
 
@@ -24,31 +61,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-To estimate the dynamic investment model underlying the analysis, you need an environment with a lot of RAM/swap space (about 350 GB). If you are short on RAM. you might be able to adjust the size of the estimation grid by setting `k_size`and `z_size` in `code/di_model.py` to smaller values (e.g. 100/100).
-
-Source the `code/di_model.py` file to run the model. The resulting grid will be stored in in the `data/grids` folder. It will take app. 2 hours to produce the grid on a reasonably powerful environment.
-
-For convenience, three grids are already included in the repository. So. you can skip this step if you want to use the precomputed grid.
-
-Based on the (precomputed) grids, you can source the R file `code/create_sim_panels.R` to create the simulation panels for various (conservatism) values. The simulation panels are stored in the `data/generated` folder. Generating the samples will take 1-2 hours (I sense some serious speed-up pontential here...). 
-
-For downloading the required WRDS data, you need to have a WRDS account and access to CRSP, Compustat North America, and the CRSP Compustat merged suite. 
-
-Copy the file '_config.env' to 'config.env' and fill in your WRDS credentials. Do **not** commit the `config.env` file to the repository (it is included in `.gitignore` to avoid you doing this accidentally).
-
-Then, source the R file `code/pull_wrds_data.R` to download the required data. The data will be stored as parquet files in the `data/wrds` folder. The download should take about 30 minutes. (I am lazy and thus have the tendency to download complete datasets instead of filtering them in the SQL query. Sorry.)
-
-After pulling the WRDS data, source `code/generate_wrds_panel.R` to create the panel data for the analysis. The panel data will be stored in the `data/generated` folder. 
-
-
-### Analysis
-
-Finally, you can run the R scripts `code/analysis_sim_data.R` and `code/analysis_wrds_data.R` to run some basic analyses that allow you to explore some insights generated by David and Matthias in their working paper.
-
-
-### Output
-
-To render the slide deck of my discussion, you need to install quarto. After that, you should be able to render the slide deck contained in `doc/presentation.Rmd`. The output will be rendered in the `output` folder.
+Then, you can estimate the parameter grid of the model by running `python code/di_model.py`. Feel free to play with the model parameters to see how the resulting simulated sample properties change.
 
 
 ### License

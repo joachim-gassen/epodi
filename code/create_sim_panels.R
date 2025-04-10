@@ -1,16 +1,21 @@
-library(tidyverse)
-library(fixest)
-library(logger)
+suppressWarnings(suppressPackageStartupMessages({
+  library(tidyverse)
+  library(fixest)
+  library(logger)
+}))
+
 set.seed(42)
 
-grid <- "600k_101z_600kmax"
-model <- "BWznorm"
+grid <- "600k_100z_600kmax"
+model <- "BW"
 
-grid_fname <- sprintf("data/grids/precomp_grid_%s_%s.csv", grid, model)
+grid_fname <- sprintf("data/grids/grid_%s_%s.csv", grid, model)
 
 grid_df <- read_csv(grid_fname, col_types = cols())
 
 mink <- min(grid_df$k)
+zs <- unique(grid_df$z)
+ks <- unique(grid_df$k)
 
 N_FIRMS <- 4000
 N_YEARS <- 25
@@ -33,60 +38,55 @@ if (str_detect(model, fixed("BW"))) {
   sigma_z <- 0.5 
 } 
 
-create_panel <- function(gamma = 0, n_firms = N_FIRMS, n_years = N_YEARS, type = "random") {
+create_panel <- function(
+    gamma = 0, n_firms = N_FIRMS, n_years = N_YEARS, type = "random"
+) {
   log_info("Creating panel with gamma: {gamma}")
-  panel <- expand_grid(
+  
+  df <- expand_grid(
     firm = 1:n_firms,
-    year = 1:n_years,
-    z = NA,
-    k = NA,
-    I = NA,
-    ear = NA,
-    accear = NA,
-    dep = NA,
-    ocf = NA,
-    icf = NA,
-    V = NA
+    year = 1:n_years
   )
   
   find_grid_z <- function(zval) {
-    grid_df %>% 
-      filter (k == mink) %>%
-      mutate(delta = abs(z - zval)) %>%
-      filter(delta == min(delta)) %>% pull(z)
+    delta <- abs(zs - zval)
+    zs[delta == min(delta)]
+  }
+
+  find_kprime_v <- function(z, k) {
+    unlist(unname(grid_df[near(grid_df$z, z) & near(grid_df$k, k),3:4]))
   }
   
-  for (i in 1:n_firms) {
-    for (y in 1:n_years) {
-      pos <- (i-1)*n_years + y
-      if (y == 1) {
-        panel$z[pos] <- find_grid_z(rnorm(1, z_upper_bar, sigma_z)) 
-        if (type == "random") panel$k[pos] <- grid_df$k[sample.int(100, 1)*100]
-        else panel$k[pos] <- mink
+  a <- array(NA_real_, dim = c(n_years, 4, n_firms))
+  for (y in 1:n_years) {
+    if (y == 1) {
+      a[y, 1, ]  <- unlist(lapply(
+        rnorm(n_firms, z_upper_bar, sigma_z), find_grid_z
+      )) 
+      if (type == "random") a[y, 2, ]  <-  sample(ks, n_firms, replace = TRUE)
+        else a[y, 2, ] <- mink
       } else {
-        panel$z[pos] <-find_grid_z((1 - rho)* z_upper_bar + rho*panel$z[pos - 1] + 
-                                     rnorm(1, 0, sigma_z))
+        a[y, 1, ] <- unlist(lapply(
+          (1- rho) * z_upper_bar + rho*a[y - 1, 1, ] + 
+            rnorm(n_firms, 0, sigma_z), 
+          find_grid_z 
+        ))
       }
-      kprime <- grid_df %>% 
-        filter(k == panel$k[pos], z == panel$z[pos]) %>%
-        pull(kprime)
-      if (y != n_years) panel$k[pos + 1] <- kprime 
-      panel$dep[pos] <- delta*panel$k[pos]
-      panel$I[pos] <- kprime + panel$dep[pos] - panel$k[pos]
-      panel$ear[pos] <- panel$z[pos]*panel$k[pos]^theta - 
-        psi_factor*(panel$I[pos]^2/(2*panel$k[pos])) - panel$dep[pos]
-      panel$accear[pos] <- panel$z[pos]*panel$k[pos]^theta - 
-        psi_factor*(panel$I[pos]^2/(2*panel$k[pos])) - 
-        (panel$I[pos] + (1 - gamma)*(panel$dep[pos] - panel$I[pos]))
-      panel$ocf[pos] <- panel$z[pos]*panel$k[pos]^theta - 
-        psi_factor*(panel$I[pos]^2/(2*panel$k[pos]))
-      panel$icf[pos] <- -panel$I[pos]
-      panel$V[pos] <- grid_df %>% 
-        filter(k == panel$k[pos], z == panel$z[pos]) %>%
-        pull(v)
-    }
+    a[y, 3:4, ] <- apply(a[y, 1:2, ], 2, function(x) find_kprime_v(x[1], x[2]))
+    if (y < n_years) a[y + 1, 2, ] <- a[y, 3, ]
   }
-  panel
+  
+  df2 <- bind_rows(lapply(1:n_firms, function(x) as_tibble(a[,,x])))
+  colnames(df2) <- c("z", "k", "kprime", "V")
+  bind_cols(df, df2) %>%
+    mutate(
+      dep = delta*k,
+      I =  kprime + dep - k,
+      ear = z*k^theta - psi_factor*(I^2/(2*k)) - dep,
+      accear = z*k^theta - psi_factor*(I^2/(2*k)) - (I + (1 - gamma)*(dep - I)),
+      ocf = z*k^theta - psi_factor*(I^2/(2*k)),
+      icf = -I
+    )
 }
 
 panels_fname <- sprintf(
@@ -94,17 +94,17 @@ panels_fname <- sprintf(
   grid, model, N_FIRMS, N_YEARS
 )
 
-log_info("Creating panels data. This will take a while")
+log_info("Creating simulated panels. This will take a while")
 panels <- bind_rows(
   lapply(
     seq(0, 1, by = 0.1),
     function(x) {
-      bind_cols(tibble(gamma = x), create_panel(x))
+      bind_cols(tibble(gamma = x), create_panel(x, type = "growth"))
     }
   )
 )
 
-log_info("Saving panels data to '{panels_fname}'.")
+log_info("Saving simulated panels to '{panels_fname}'.")
 saveRDS(
   panels, panels_fname
 )

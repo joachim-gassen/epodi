@@ -7,7 +7,8 @@
 config.env
 .DS_Store
 .venv
+/.quarto
 
-
+data/grids/grid*
 
 /.quarto/
