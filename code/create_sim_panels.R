@@ -116,4 +116,4 @@ panels <- bind_rows(
 )
 
 log_info("Saving simulated panels to '{panels_fname}'.")
-#saveRDS(panels, panels_fname)
+saveRDS(panels, panels_fname)
