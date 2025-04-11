@@ -38,11 +38,7 @@ if (str_detect(model, fixed("BW"))) {
   sigma_z <- 0.5 
 } 
 
-create_panel <- function(
-    gamma = 0, n_firms = N_FIRMS, n_years = N_YEARS, type = "random"
-) {
-  log_info("Creating panel with gamma: {gamma}")
-  
+create_base_panel <- function(n_firms, n_years, type) {
   df <- expand_grid(
     firm = 1:n_firms,
     year = 1:n_years
@@ -52,7 +48,7 @@ create_panel <- function(
     delta <- abs(zs - zval)
     zs[delta == min(delta)]
   }
-
+  
   find_kprime_v <- function(z, k) {
     unlist(unname(grid_df[near(grid_df$z, z) & near(grid_df$k, k),3:4]))
   }
@@ -64,21 +60,31 @@ create_panel <- function(
         rnorm(n_firms, z_upper_bar, sigma_z), find_grid_z
       )) 
       if (type == "random") a[y, 2, ]  <-  sample(ks, n_firms, replace = TRUE)
-        else a[y, 2, ] <- mink
-      } else {
-        a[y, 1, ] <- unlist(lapply(
-          (1- rho) * z_upper_bar + rho*a[y - 1, 1, ] + 
-            rnorm(n_firms, 0, sigma_z), 
-          find_grid_z 
-        ))
-      }
+      else a[y, 2, ] <- mink
+    } else {
+      a[y, 1, ] <- unlist(lapply(
+        (1- rho) * z_upper_bar + rho*a[y - 1, 1, ] + 
+          rnorm(n_firms, 0, sigma_z), 
+        find_grid_z 
+      ))
+    }
     a[y, 3:4, ] <- apply(a[y, 1:2, ], 2, function(x) find_kprime_v(x[1], x[2]))
     if (y < n_years) a[y + 1, 2, ] <- a[y, 3, ]
   }
   
+  colnames(a) <- c("z", "k", "kprime", "V")
   df2 <- bind_rows(lapply(1:n_firms, function(x) as_tibble(a[,,x])))
-  colnames(df2) <- c("z", "k", "kprime", "V")
-  bind_cols(df, df2) %>%
+  bind_cols(df, df2)  
+}
+
+create_panel <- function(
+    gamma = 0, n_firms = N_FIRMS, n_years = N_YEARS, type = "random", base_panel = NULL
+) {
+  log_info("Creating panel with gamma: {gamma}")
+  if (is.null(base_panel)) {
+    base_panel <- create_base_panel(n_firms, n_years, type)
+  }
+   base_panel %>%
     mutate(
       dep = delta*k,
       I =  kprime + dep - k,
@@ -95,16 +101,19 @@ panels_fname <- sprintf(
 )
 
 log_info("Creating simulated panels. This will take a while")
+log_info("Creating base panel")
+base_panel <- create_base_panel(N_FIRMS, N_YEARS, "growth")
 panels <- bind_rows(
   lapply(
     seq(0, 1, by = 0.1),
     function(x) {
-      bind_cols(tibble(gamma = x), create_panel(x, type = "growth"))
+      bind_cols(
+        tibble(gamma = x), 
+        create_panel(x, type = "growth", base_panel = base_panel)
+      )
     }
   )
 )
 
 log_info("Saving simulated panels to '{panels_fname}'.")
-saveRDS(
-  panels, panels_fname
-)
+#saveRDS(panels, panels_fname)
